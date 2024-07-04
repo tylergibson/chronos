@@ -61,6 +61,32 @@ const api = {
       name: name
     });
   },
+  renameScript(oldName, newName, callback = () => {}) {
+    let oldScriptUid = this.guessScriptUid(oldName);
+    let newScriptUid = this.guessScriptUid(newName);
+
+    store.commit("addScriptLoading", {
+      name: newName,
+      uid: newScriptUid
+    });
+
+    let renameScriptCallback = event => {
+      if (event.old_uid === oldScriptUid && event.new_uid === newScriptUid) {
+        store.commit("finishLoadingScript", {
+          uid: event.new_uid,
+          script: store.getters.getScriptByUid(newScriptUid)
+        });
+        events.$off("_script_renamed", renameScriptCallback);
+        callback();
+      }
+    };
+    events.$on("_script_renamed", renameScriptCallback);
+
+    axios.post(this.getApiUrl() + "script/rename", {
+      old_name: oldName,
+      new_name: newName
+    });
+  },
   scriptAction(uid, action, callback = () => {}) {
     store.commit("resetActionOutput", {
       scriptUid: uid,
@@ -143,6 +169,10 @@ const api = {
 
     events.$on("_script_deleted", event => {
       store.commit("deleteScript", event.uid);
+    });
+
+    events.$on("_script_renamed", event => {
+      store.commit("updateScript", event);
     });
 
     events.$on("_action_started", event => {
